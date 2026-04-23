@@ -1,0 +1,26 @@
+{
+    "project": {
+        "name": "Standard RC Bridge Project",
+        "description": "Parametric generation of standardized RC frame bridges",
+        "author": "GATE Student Team & Emch+Berger"
+    },
+    "units": {
+        "length": "METERS",
+        "angle": "DEGREES"
+    },
+    "geometry": {
+        "span_l": 6.0,
+        "height_h": 4.7,
+        "width_b": 10.0,
+        "wall_thickness_dw": 1.0,
+        "slab_top_ds": 0.6,
+        "slab_bot_df": 0.8,
+        "skew_angle_deg": 0.0,
+        "haunch_h": 0.3,
+        "haunch_w": 0.3
+    },
+    "materials": {
+        "concrete_class": "C30/37",
+        "concrete_density": 2500.0
+    }
+}
