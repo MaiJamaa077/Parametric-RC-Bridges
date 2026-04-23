@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+
+# BIM Output (Ignore generated models)
+ifc_output/
+*.ifc
+
+# Large Binary Files (Keep these out of GitHub)
+*.zip
+*.mp4
+*.exe
+*.dll
+
+# OS generated files
+.DS_Store
+Thumbs.db
