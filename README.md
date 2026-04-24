@@ -111,7 +111,7 @@ This will:
 
 ---
 
-## 🤝 Team Contribution & Git Flow
+## Team Contribution & Git Flow
 To keep the "Golden" version of the engine stable, we follow a feature-based branching model:
 
 *   **`main`**: The "Golden" version. Only contains code that generates valid, schema-passed .ifc files.
@@ -126,7 +126,7 @@ Before opening a PR (Pull Request) into `dev`:
 
 ---
 
-## 🧪 Testing Protocol
+## Testing Protocol
 We don't trust our code until it's validated:
 1.  **Unit Tests:** Ensuring geometric functions return accurate dimensions.
 2.  **Schema Check:** Every generated file must pass the IFC 4.3 schema validation (Phase 3.1).
