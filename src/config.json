@@ -1,26 +1,256 @@
 {
-    "project": {
-        "name": "Standard RC Bridge Project",
-        "description": "Parametric generation of standardized RC frame bridges",
-        "author": "GATE Student Team & Emch+Berger"
+  "schema_name": "Bridge Parameter Schema",
+  "description": "Standardized bridge parameterization tracking dependencies across structural components to support procedural modeling and automation workflows.",
+  "design_logic_hierarchy": [
+    "Main Deck",
+    "Abutment",
+    "Foundation Slab",
+    "Wing Walls"
+  ],
+  "components": {
+    "main_deck": {
+      "description": "Defines the primary roadway geometry and governs several downstream dependencies.",
+      "parameters": {
+        "Skew_i": {
+          "parameter": "Skew angle",
+          "type": "Editable",
+          "unit": "°",
+          "example_value": 0,
+          "dependencies": []
+        },
+        "Lbr": {
+          "parameter": "Length of bridge",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 5,
+          "dependencies": []
+        },
+        "Traff_w": {
+          "parameter": "Traffic width",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 8,
+          "dependencies": []
+        },
+        "Cape_w": {
+          "parameter": "Cape width",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 2.05,
+          "dependencies": []
+        },
+        "deck_w_tot": {
+          "parameter": "Total deck width",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 11.6,
+          "formula": "Traff_w + 2 * (Cape_w - 0.25)",
+          "dependencies": ["Traff_w", "Cape_w"]
+        },
+        "deck_t": {
+          "parameter": "Minimum deck thickness",
+          "type": "Normative/Input",
+          "unit": "m",
+          "example_value": 0.925,
+          "dependencies": []
+        },
+        "deck_i": {
+          "parameter": "Transversal deck slope",
+          "type": "Editable",
+          "unit": "%",
+          "example_value": "2.5%",
+          "dependencies": []
+        },
+        "deck_t_max": {
+          "parameter": "Maximum deck thickness",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 1.025,
+          "formula": "deck_t + 0.5 * Traff_w * deck_i",
+          "dependencies": ["deck_t", "Traff_w", "deck_i"]
+        }
+      }
     },
-    "units": {
-        "length": "METERS",
-        "angle": "DEGREES"
+    "abutment": {
+      "description": "The abutment geometry depends primarily on deck dimensions.",
+      "parameters": {
+        "Abut_w_inner": {
+          "parameter": "Abutment inner width",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 8,
+          "formula": "Traff_w",
+          "dependencies": ["main_deck.Traff_w"]
+        },
+        "Abut_w_outer": {
+          "parameter": "Abutment outer width",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 11.6,
+          "formula": "deck_w_tot",
+          "dependencies": ["main_deck.deck_w_tot"]
+        },
+        "Abut_h": {
+          "parameter": "Abutment height",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 3,
+          "dependencies": []
+        },
+        "Abut_t": {
+          "parameter": "Abutment thickness",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 1,
+          "dependencies": []
+        }
+      }
     },
-    "geometry": {
-        "span_l": 6.0,
-        "height_h": 4.7,
-        "width_b": 10.0,
-        "wall_thickness_dw": 1.0,
-        "slab_top_ds": 0.6,
-        "slab_bot_df": 0.8,
-        "skew_angle_deg": 0.0,
-        "haunch_h": 0.3,
-        "haunch_w": 0.3
+    "foundation_slab": {
+      "description": "The foundation slab dimensions are generated from bridge length and foundation overhang constraints.",
+      "parameters": {
+        "Foun_Sl_Ov": {
+          "parameter": "Foundation slab exterior overhang",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 2.0,
+          "dependencies": []
+        },
+        "Foun_Sl_L": {
+          "parameter": "Foundation slab length",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 7,
+          "formula": "Lbr + 2 * Abut_t",
+          "dependencies": ["main_deck.Lbr", "abutment.Abut_t"]
+        },
+        "Foun_Sl_t_min": {
+          "parameter": "Minimum foundation slab thickness",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 0.5,
+          "dependencies": []
+        },
+        "Foun_Sl_t_max": {
+          "parameter": "Maximum foundation slab thickness",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 0.6,
+          "formula": "Foun_Sl_t_min + 0.1",
+          "dependencies": ["Foun_Sl_t_min"]
+        },
+        "Foun_Sl_Ov_side": {
+          "parameter": "Foundation slab left/right overhang",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 1,
+          "dependencies": []
+        },
+        "Foun_w_upper": {
+          "parameter": "Foundation upper width",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 11.6,
+          "formula": "deck_w_tot",
+          "dependencies": ["main_deck.deck_w_tot"]
+        },
+        "Foun_w_lower": {
+          "parameter": "Foundation lower width",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 14.0,
+          "formula": "deck_w_tot + 2 * Wing_L_lower + 0.4",
+          "dependencies": ["main_deck.deck_w_tot", "wing_walls.Wing_L_lower"]
+        },
+        "Foun_Sl_span": {
+          "parameter": "Foundation slab span (matches deck width)",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 11.6,
+          "formula": "deck_w_tot",
+          "dependencies": ["main_deck.deck_w_tot"]
+        }
+      }
     },
-    "materials": {
-        "concrete_class": "C30/37",
-        "concrete_density": 2500.0
+    "wing_walls": {
+      "description": "Wing wall geometry is derived from foundation and abutment properties.",
+      "parameters": {
+        "Wing_i": {
+          "parameter": "Wing angle",
+          "type": "Editable",
+          "unit": "°",
+          "example_value": 0,
+          "dependencies": []
+        },
+        "Wing_L_lower": {
+          "parameter": "Wing lower length",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 3.73,
+          "formula": "0.2 + 1.5*(Abut_h + Foun_Sl_t_max) - Foun_Sl_t_max - (Abut_h - Foun_Sl_t_max - 0.2) / tan(60°)",
+          "dependencies": ["abutment.Abut_h", "foundation_slab.Foun_Sl_t_max"]
+        },
+        "Wing_h_total": {
+          "parameter": "Wing total height",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 3.925,
+          "formula": "Abut_h + deck_t",
+          "dependencies": ["abutment.Abut_h", "main_deck.deck_t"]
+        },
+        "Wing_h_upper": {
+          "parameter": "Wing upper height",
+          "type": "Fixed",
+          "unit": "m",
+          "example_value": 0.2,
+          "dependencies": []
+        },
+        "Wing_t": {
+          "parameter": "Wing wall thickness",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 1,
+          "dependencies": []
+        },
+        "Wing_L_upper": {
+          "parameter": "Wing upper length",
+          "type": "Derived",
+          "unit": "m",
+          "example_value": 6.4,
+          "formula": "0.2 + 1.5*(Abut_h + Foun_Sl_t_max) + 0.8",
+          "dependencies": ["abutment.Abut_h", "foundation_slab.Foun_Sl_t_max"]
+        }
+      }
     }
+  },
+  "global_dependency_flow": {
+    "from_main_deck": [
+      { "source": "main_deck.Traff_w", "target": "main_deck.deck_w_tot" },
+      { "source": "main_deck.Cape_w", "target": "main_deck.deck_w_tot" },
+      { "source": "main_deck.deck_t", "target": "main_deck.deck_t_max" },
+      { "source": "main_deck.Traff_w", "target": "main_deck.deck_t_max" },
+      { "source": "main_deck.deck_i", "target": "main_deck.deck_t_max" },
+      { "source": "main_deck.Traff_w", "target": "abutment.Abut_w_inner" },
+      { "source": "main_deck.deck_w_tot", "target": "abutment.Abut_w_outer" },
+      { "source": "main_deck.Lbr", "target": "foundation_slab.Foun_Sl_L" },
+      { "source": "main_deck.deck_w_tot", "target": "foundation_slab.Foun_w_upper" },
+      { "source": "main_deck.deck_w_tot", "target": "foundation_slab.Foun_Sl_span" },
+      { "source": "main_deck.deck_t", "target": "wing_walls.Wing_h_total" }
+    ],
+    "from_abutment": [
+      { "source": "abutment.Abut_h", "target": "wing_walls.Wing_h_total" },
+      { "source": "abutment.Abut_h", "target": "wing_walls.Wing_L_upper" },
+      { "source": "abutment.Abut_h", "target": "wing_walls.Wing_L_lower" },
+      { "source": "abutment.Abut_t", "target": "foundation_slab.Foun_Sl_L" }
+    ],
+    "from_foundation_slab": [
+      { "source": "foundation_slab.Foun_Sl_t_min", "target": "foundation_slab.Foun_Sl_t_max" },
+      { "source": "foundation_slab.Foun_Sl_t_max", "target": "wing_walls.Wing_L_upper" },
+      { "source": "foundation_slab.Foun_Sl_t_max", "target": "wing_walls.Wing_L_lower" },
+      { "source": "foundation_slab.Foun_w_upper", "target": "foundation_slab.Foun_w_lower" }
+    ],
+    "from_wing_walls": [
+      { "source": "wing_walls.Wing_L_lower", "target": "foundation_slab.Foun_w_lower" }
+    ]
+  }
 }
