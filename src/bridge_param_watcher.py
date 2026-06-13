@@ -82,7 +82,7 @@ try:
     PROJECT_DIR, SRC_DIR = find_project_paths()
 except RuntimeError:
     
-    PROJECT_DIR = r"C:\Users\iharu\Documents\Gate Project\src"
+    PROJECT_DIR = r"C:\Users\iharu\Documents\Blue_Rhinos"
     SRC_DIR     = os.path.join(PROJECT_DIR, "src")
     print("[Bridge Watcher] Used hardcoded fallback paths.")
 
@@ -150,12 +150,70 @@ def run_main_pipeline():
 # BONSAI / BLENDER REFRESH
 # ------------------------------------------------------------
 
+def _purge_ifc_objects():
+    """
+    Removes all Blender objects and collections that belong to the current
+    IFC session, without calling should_start_fresh_session=True (which would
+    wipe the N-panel and all addon state).
+
+    Strategy:
+      1. Try bim.unload_project — cleanest path, removes the IfcStore link.
+      2. Manually delete every object whose name starts with a known IFC prefix
+         or that has an ifc_definition_id, then remove empty collections.
+      3. Call bpy.ops.outliner.orphans_purge to free leftover data-blocks.
+    """
+
+    # --- Step 1: try the Bonsai unload operator (best case) -----------------
+    try:
+        bpy.ops.bim.unload_project()
+        print("[Bridge Watcher] bim.unload_project succeeded.")
+    except Exception as e:
+        print(f"[Bridge Watcher] bim.unload_project not available ({e}); "
+              "falling back to manual purge.")
+
+    # --- Step 2: remove IFC objects from every scene ------------------------
+    # Collect objects to delete (never modify a collection while iterating it)
+    to_delete = []
+    for obj in bpy.data.objects:
+        # Bonsai stamps IFC objects with this custom property
+        if obj.get("ifc_definition_id") is not None:
+            to_delete.append(obj)
+            continue
+        # Belt-and-suspenders: names Bonsai assigns follow these prefixes
+        if obj.name.startswith(("Ifc", "IfcOpeningElement", "IfcSpace")):
+            to_delete.append(obj)
+
+    for obj in to_delete:
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    print(f"[Bridge Watcher] Removed {len(to_delete)} IFC object(s).")
+
+    # --- Step 3: remove IFC collections (they stack too) --------------------
+    ifc_coll_prefixes = ("Ifc", "IfcProject", "IfcSite", "IfcBuilding",
+                         "OpenBIM", "Bridge")
+    colls_to_delete = [
+        c for c in bpy.data.collections
+        if any(c.name.startswith(p) for p in ifc_coll_prefixes)
+    ]
+    for coll in colls_to_delete:
+        bpy.data.collections.remove(coll)
+
+    print(f"[Bridge Watcher] Removed {len(colls_to_delete)} IFC collection(s).")
+
+    # --- Step 4: purge orphaned meshes / materials / etc. -------------------
+    try:
+        bpy.ops.outliner.orphans_purge(
+            do_local_ids=True, do_linked_ids=True, do_recursive=True
+        )
+        print("[Bridge Watcher] Orphan data-blocks purged.")
+    except Exception as e:
+        print(f"[Bridge Watcher] Orphan purge skipped: {e}")
+
+
 def refresh_bonsai_ifc():
     """
-    Loads the generated IFC into Blender/Bonsai.
-
-    We use load_project directly instead of reload_ifc_file because
-    reload_ifc_file can fail if Bonsai still points to an old or missing IFC path.
+    Purges the current IFC geometry from the scene, then loads the freshly
+    generated IFC — without a full session reset so the N-panel stays open.
     """
 
     print("[Bridge Watcher] Loading updated IFC into Blender/Bonsai...")
@@ -166,9 +224,14 @@ def refresh_bonsai_ifc():
         return False
 
     try:
+        # Remove old IFC objects/collections before loading the new file.
+        # This prevents geometry stacking while keeping should_start_fresh_session=False
+        # so the N-panel and addon state are preserved.
+        _purge_ifc_objects()
+
         bpy.ops.bim.load_project(
             filepath=OUTPUT_IFC_PATH,
-            should_start_fresh_session=True,
+            should_start_fresh_session=False,
             use_relative_path=False
         )
 

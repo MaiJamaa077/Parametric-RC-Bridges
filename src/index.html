@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parametric BIM Modeling of Standardized Reinforced Concrete Bridges</title>
+
+    <!-- Three.js r128 from CDN — OrbitControls loaded separately -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-main:        #f0f4f8;
+            --panel-bg:       #ffffff;
+            --border-color:   #cbd5e1;
+            --text-main:      #0f172a;
+            --text-muted:     #64748b;
+            --accent-blue:    #0284c7;
+            --accent-hover:   #0369a1;
+            --accent-light:   #e0f2fe;
+            --cad-grid:       rgba(2, 132, 199, 0.05);
+            --viewport-dark:  #1e2330;
+            --compile-green:  #16a34a;
+            --compile-hover:  #15803d;
+            --sync-indicator: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* ------------------------------------------------------------------ Header */
+        header {
+            background-color: var(--panel-bg);
+            padding: 12px 20px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .title-area { display: flex; align-items: center; gap: 14px; }
+        .brand-team { font-size: 1.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.02em; text-transform: uppercase; }
+        .brand-team span { color: var(--accent-blue); }
+        .title-divider { width: 2px; height: 22px; background-color: var(--border-color); }
+        .project-title { font-size: 0.95rem; font-weight: 600; color: var(--text-muted); }
+
+        .header-right { display: flex; align-items: center; gap: 12px; }
+
+        /* Sync status indicator */
+        .sync-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background-color: var(--sync-indicator);
+            box-shadow: 0 0 6px var(--sync-indicator);
+            animation: pulse-amber 2s infinite;
+            flex-shrink: 0;
+        }
+        .sync-dot.synced { background-color: #22c55e; box-shadow: 0 0 6px #22c55e; animation: none; }
+        .sync-dot.error  { background-color: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; }
+        @keyframes pulse-amber {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .sync-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+        .branding-badges { display: flex; align-items: center; gap: 10px; }
+        .badge {
+            font-size: 0.72rem; font-weight: 700; padding: 5px 10px; border-radius: 4px;
+            letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid var(--border-color); background: var(--bg-main);
+        }
+        .badge.eb   { color: #1e3a8a; border-color: #bfdbfe; background-color: #eff6ff; }
+        .badge.gate { color: #b45309; border-color: #fef3c7; background-color: #fffbef; }
+
+        .compile-btn {
+            background-color: var(--compile-green); color: white; padding: 9px 20px; border: none;
+            border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(22,163,74,0.2); letter-spacing: 0.03em;
+        }
+        .compile-btn:hover { background-color: var(--compile-hover); transform: translateY(-1px); }
+        .compile-btn:active { transform: translateY(0); }
+
+        /* ------------------------------------------------------------------ Workspace grid */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+            padding: 12px;
+            flex-grow: 1;
+            min-height: 0;
+        }
+
+        .viewport-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            position: relative;
+            min-height: 0;
+        }
+
+        .viewport-title {
+            background-color: #f8fafc;
+            padding: 9px 14px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            flex-shrink: 0;
+        }
+
+        .viewport-body {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            background-image: linear-gradient(var(--cad-grid) 1px, transparent 1px),
+                              linear-gradient(90deg, var(--cad-grid) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: #ffffff;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* 2D SVG canvas containers */
+        .canvas-container { position: relative; width: 100%; height: 100%; max-width: 520px; max-height: 260px; }
+        .canvas-container svg { width: 100%; height: 100%; }
+
+        /* Dimension input nodes */
+        .dimension-node {
+            position: absolute; display: flex; flex-direction: column; align-items: center;
+            z-index: 50; transform: translate(-50%, -50%);
+            transition: left 0.08s ease, top 0.08s ease;
+            pointer-events: auto;
+        }
+        .dimension-node label {
+            font-size: 0.62rem; font-weight: 700; color: var(--text-main); margin-bottom: 2px;
+            background: #ffffff; padding: 1px 4px; border-radius: 3px;
+            border: 1px solid var(--border-color); white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+        .input-box-wrapper {
+            display: flex; align-items: center; background-color: #ffffff;
+            border: 1px solid #475569; border-radius: 4px; padding: 1px 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .input-box-wrapper:focus-within { border-color: var(--accent-blue); box-shadow: 0 0 0 2px var(--accent-light); }
+        .dimension-node input {
+            width: 46px; background: transparent; border: none; color: var(--text-main);
+            font-size: 0.78rem; text-align: center; outline: none; font-weight: 700;
+        }
+        .dimension-node input::-webkit-outer-spin-button,
+        .dimension-node input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .dimension-node input.invalid { color: #ef4444; }
+        .dimension-node .unit { font-size: 0.62rem; color: var(--text-muted); font-weight: 600; margin-left: 2px; }
+
+        /* ------------------------------------------------------------------ Section 4: 3D Viewport */
+        .viewport-3d {
+            background-color: var(--viewport-dark) !important;
+            background-image: none !important;
+            padding: 0 !important;
+        }
+
+        #three-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #three-canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* HUD overlay — Blender-style corner controls legend */
+        .viewport-hud {
+            position: absolute;
+            bottom: 10px;
+            left: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .hud-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .hud-key {
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 3px;
+            padding: 1px 5px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .hud-action {
+            font-size: 0.58rem;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.02em;
+        }
+
+        /* 3D viewport title badge */
+        .viewport-title.dark-title {
+            background-color: #161b27;
+            color: rgba(255,255,255,0.4);
+            border-bottom-color: rgba(255,255,255,0.06);
+        }
+
+        /* Compile flash feedback */
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: #0f172a; color: #fff;
+            padding: 10px 18px; border-radius: 6px;
+            font-size: 0.8rem; font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            z-index: 9999;
+            transform: translateY(60px); opacity: 0;
+            transition: all 0.25s ease;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { border-left: 3px solid #22c55e; }
+        .toast.error   { border-left: 3px solid #ef4444; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-area">
+            <div class="brand-team">Blue <span>Rhinos</span></div>
+            <div class="title-divider"></div>
+            <div class="project-title">Parametric BIM — Reinforced Concrete Bridge</div>
+        </div>
+        <div class="header-right">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <div class="sync-dot" id="sync-dot"></div>
+                <span class="sync-label" id="sync-label">Syncing…</span>
+            </div>
+            <div class="branding-badges">
+                <div class="badge eb">Emch + Berger</div>
+                <div class="badge gate">GATE</div>
+            </div>
+            <button type="button" class="compile-btn" onclick="triggerPipelineCompilation()">▶ COMPILE &amp; SYNC</button>
+        </div>
+    </header>
+
+    <div class="workspace-grid">
+
+        <!-- ============================================================ SECTION 1 -->
+        <div class="viewport-card">
+            <div class="viewport-title">Section 1 · Transverse Cross-Section</div>
+            <div class="viewport-body" id="body-pane1">
+                <div class="canvas-container">
+                    <svg id="crossSectionSvg" viewBox="0 0 500 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect id="cs-deck"        fill="#64748b" stroke="#334155" stroke-width="1.5"/>
+                        <rect id="cs-abut-left"   fill="#94a3b8" stroke="#334155" stroke-width="1.5"/>
+                        <rect id="cs-abut-right"  fill="#94a3b8" stroke="#334155" stroke-width="1.5"/>
+                        <rect id="cs-foundation"  fill="#cbd5e1" stroke="#334155" stroke-width="1.5"/>
+                    </svg>
+                    <div class="dimension-node" id="node-Cape_w">
+                        <label>Cape Width</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="main_deck-Cape_w"><span class="unit">m</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-Traff_w">
+                        <label>Traffic Width</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="main_deck-Traff_w"><span class="unit">m</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-deck_t">
+                        <label>Deck Thick.</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="main_deck-deck_t"><span class="unit">m</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-Abut_t_left">
+                        <label>Left Abut. Thick.</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_t_left"><span class="unit">m</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-Abut_t_right">
+                        <label>Right Abut. Thick.</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_t_right"><span class="unit">m</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================ SECTION 2 -->
+        <div class="viewport-card">
+            <div class="viewport-title">Section 2 · Top-View Plan</div>
+            <div class="viewport-body" id="body-pane2">
+                <div class="canvas-container">
+                    <svg id="topViewSvg" viewBox="0 0 500 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <g id="tv-skew-group">
+                            <rect id="tv-roadway"    fill="#475569" stroke="#1e293b" stroke-width="1.5"/>
+                            <line id="tv-centerline" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 4"/>
+                        </g>
+                        <path id="tv-wing-tl" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+                        <path id="tv-wing-bl" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+                        <path id="tv-wing-tr" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+                        <path id="tv-wing-br" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+                    </svg>
+                    <div class="dimension-node" id="node-Skew_i">
+                        <label>Skew Angle</label>
+                        <div class="input-box-wrapper"><input type="number" step="1" id="main_deck-Skew_i"><span class="unit">°</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-Wing_i">
+                        <label>Wing Wall Angle</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.1" id="wing_walls-Wing_i"><span class="unit">°</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================ SECTION 3 -->
+        <div class="viewport-card">
+            <div class="viewport-title">Section 3 · Longitudinal Profile</div>
+            <div class="viewport-body" id="body-pane3">
+                <div class="canvas-container">
+                    <svg id="longSectionSvg" viewBox="0 0 500 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect id="long-deck"        fill="#64748b" stroke="#334155" stroke-width="1.5"/>
+                        <rect id="long-abut-left"   fill="#94a3b8" stroke="#334155" stroke-width="1.5"/>
+                        <rect id="long-abut-right"  fill="#94a3b8" stroke="#334155" stroke-width="1.5"/>
+                        <rect id="long-foundation"  fill="#cbd5e1" stroke="#334155" stroke-width="1.5"/>
+                    </svg>
+                    <div class="dimension-node" id="node-Lbr">
+                        <label>Span Length (Lbr)</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="main_deck-Lbr"><span class="unit">m</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-Abut_h">
+                        <label>Abutment Height</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_h"><span class="unit">m</span></div>
+                    </div>
+                    <div class="dimension-node" id="node-Foun_Sl_t_min">
+                        <label>Foundation Thickness</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="foundation_slab-Foun_Sl_t_min"><span class="unit">m</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================ SECTION 4: LIVE 3D -->
+        <div class="viewport-card">
+            <div class="viewport-title dark-title">Section 4 · Live 3D Production Viewport</div>
+            <div class="viewport-body viewport-3d" id="body-pane4">
+                <div id="three-canvas-container"></div>
+                <div class="viewport-hud">
+                    <div class="hud-row"><span class="hud-key">L-Drag</span><span class="hud-action">Orbit</span></div>
+                    <div class="hud-row"><span class="hud-key">R-Drag</span><span class="hud-action">Pan</span></div>
+                    <div class="hud-row"><span class="hud-key">Scroll</span><span class="hud-action">Zoom</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // ==========================================================================
+    // UTILITY
+    // ==========================================================================
+    SVGElement.prototype.setAttributes = function(attrs) {
+        for (let key in attrs) this.setAttribute(key, attrs[key]);
+    };
+    Math.getSkewOffset = function(angle, height) {
+        return height * Math.tan((angle * Math.PI) / 180);
+    };
+
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast ${type} show`;
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.className = 'toast'; }, 3000);
+    }
+
+    function setSyncState(state) {
+        // state: 'syncing' | 'synced' | 'error'
+        const dot   = document.getElementById('sync-dot');
+        const label = document.getElementById('sync-label');
+        dot.className   = 'sync-dot' + (state !== 'syncing' ? ` ${state}` : '');
+        label.textContent = state === 'synced' ? 'In sync' : state === 'error' ? 'Sync error' : 'Syncing…';
+    }
+
+    function getVal(id, fallback = 0) {
+        const el = document.getElementById(id);
+        if (!el) return fallback;
+        const v = parseFloat(el.value);
+        return isNaN(v) ? fallback : v;
+    }
+
+    function moveNode(id, svgX, svgY) {
+        const node = document.getElementById(id);
+        if (node) {
+            node.style.left = (svgX / 500) * 100 + '%';
+            node.style.top  = (svgY / 300) * 100 + '%';
+        }
+    }
+
+
+    // ==========================================================================
+    // 2D DIAGRAM RECALCULATION  (Sections 1, 2, 3)
+    // ==========================================================================
+    function runDynamicDiagramRecalculation() {
+        const traff_w      = getVal('main_deck-Traff_w', 8.0);
+        const cape_w       = getVal('main_deck-Cape_w', 2.05);
+        const deck_t       = getVal('main_deck-deck_t', 0.4);
+        const abut_t_left  = getVal('abutment-Abut_t_left', 1.0);
+        const abut_t_right = getVal('abutment-Abut_t_right', 1.0);
+        const abut_h       = getVal('abutment-Abut_h', 4.5);
+        const foun_t       = getVal('foundation_slab-Foun_Sl_t_min', 0.6);
+        const lbr          = getVal('main_deck-Lbr', 5.0);
+        const skew         = getVal('main_deck-Skew_i', 0);
+        const wing_i       = getVal('wing_walls-Wing_i', 45);
+
+        const cx = 250;
+
+        // --- Section 1: Cross-section ---
+        const s1_scale    = 16;
+        const total_deck_w = traff_w + (2 * cape_w);
+        const d_w = total_deck_w * s1_scale;
+        const d_h = deck_t * s1_scale * 2.2;
+        const d_x = cx - (d_w / 2);
+        const d_y = 60;
+
+        document.getElementById('cs-deck').setAttributes({ x: d_x, y: d_y, width: d_w, height: d_h });
+
+        const a_w_left = abut_t_left  * s1_scale * 1.4;
+        const a_h      = abut_h       * s1_scale * 1.3;
+        const al_x     = d_x + (cape_w * s1_scale);
+        const a_y      = d_y + d_h;
+        document.getElementById('cs-abut-left').setAttributes({ x: al_x, y: a_y, width: a_w_left, height: a_h });
+
+        const a_w_right = abut_t_right * s1_scale * 1.4;
+        const ar_x      = (d_x + d_w) - (cape_w * s1_scale) - a_w_right;
+        document.getElementById('cs-abut-right').setAttributes({ x: ar_x, y: a_y, width: a_w_right, height: a_h });
+
+        const f_y = a_y + a_h;
+        const f_h = foun_t * s1_scale * 2;
+        const f_x = al_x - 25;
+        const f_w = (ar_x + a_w_right + 25) - f_x;
+        document.getElementById('cs-foundation').setAttributes({ x: f_x, y: f_y, width: f_w, height: f_h });
+
+        moveNode('node-Cape_w',      d_x + (cape_w * s1_scale) / 2, d_y - 25);
+        moveNode('node-Traff_w',     cx, d_y - 25);
+        moveNode('node-deck_t',      d_x + d_w + 40, d_y + (d_h / 2));
+        moveNode('node-Abut_t_left', al_x + (a_w_left / 2), a_y + (a_h / 2));
+        moveNode('node-Abut_t_right',ar_x + (a_w_right / 2), a_y + (a_h / 2));
+
+        // --- Section 2: Top view ---
+        const s2_scale = 18;
+        const rd_w = s2_scale * total_deck_w * 0.6;
+        const rd_l = s2_scale * lbr * 2.2;
+        const rx   = cx - (rd_l / 2);
+        const ry   = 150 - (rd_w / 2);
+
+        document.getElementById('tv-roadway').setAttributes({ x: rx, y: ry, width: rd_l, height: rd_w });
+        document.getElementById('tv-centerline').setAttributes({ x1: rx, y1: 150, x2: rx + rd_l, y2: 150 });
+        document.getElementById('tv-skew-group').setAttribute('transform', `skewX(${skew})`);
+
+        const skewOffset = Math.getSkewOffset(skew, 150 - ry);
+        const rad  = (wing_i * Math.PI) / 180;
+        const fl_x = Math.cos(rad) * 45;
+        const fl_y = Math.sin(rad) * 45;
+
+        document.getElementById('tv-wing-tl').setAttribute('d', `M ${rx - skewOffset} ${ry} L ${rx - skewOffset - fl_x} ${ry - fl_y}`);
+        document.getElementById('tv-wing-bl').setAttribute('d', `M ${rx + skewOffset} ${ry + rd_w} L ${rx + skewOffset - fl_x} ${ry + rd_w + fl_y}`);
+        document.getElementById('tv-wing-tr').setAttribute('d', `M ${rx + rd_l - skewOffset} ${ry} L ${rx + rd_l - skewOffset + fl_x} ${ry - fl_y}`);
+        document.getElementById('tv-wing-br').setAttribute('d', `M ${rx + rd_l + skewOffset} ${ry + rd_w} L ${rx + rd_l + skewOffset + fl_x} ${ry + rd_w + fl_y}`);
+
+        moveNode('node-Skew_i', rx + rd_l - skewOffset + 45, ry - 15);
+        moveNode('node-Wing_i', rx + skewOffset - fl_x - 10, ry + rd_w + fl_y + 25);
+
+        // --- Section 3: Longitudinal ---
+        const s3_scale = 15;
+        const l_w  = lbr    * s3_scale * 2.5;
+        const l_h  = deck_t * s3_scale * 2.2;
+        const lx   = cx - (l_w / 2);
+        const ly   = 70;
+
+        document.getElementById('long-deck').setAttributes({ x: lx, y: ly, width: l_w, height: l_h });
+
+        const la_w_left  = abut_t_left  * s3_scale * 2;
+        const la_w_right = abut_t_right * s3_scale * 2;
+        const la_h       = abut_h * s3_scale * 1.4;
+        const lal_x      = lx;
+        const lar_x      = (lx + l_w) - la_w_right;
+        const la_y       = ly + l_h;
+
+        document.getElementById('long-abut-left').setAttributes({ x: lal_x, y: la_y, width: la_w_left, height: la_h });
+        document.getElementById('long-abut-right').setAttributes({ x: lar_x, y: la_y, width: la_w_right, height: la_h });
+
+        const lf_y = la_y + la_h;
+        const lf_h = foun_t * s3_scale * 2.2;
+        const lf_x = lal_x - 15;
+        const lf_w = (lar_x + la_w_right + 15) - lf_x;
+
+        document.getElementById('long-foundation').setAttributes({ x: lf_x, y: lf_y, width: lf_w, height: lf_h });
+
+        moveNode('node-Lbr',          cx, ly + (l_h / 2));
+        moveNode('node-Abut_h',       lar_x + la_w_right + 50, la_y + (la_h / 2));
+        moveNode('node-Foun_Sl_t_min',cx, lf_y + (lf_h / 2));
+
+        // --- Trigger 3D rebuild ---
+        rebuild3DModel({
+            traff_w, cape_w, deck_t,
+            abut_t_left, abut_t_right, abut_h,
+            foun_t, lbr, skew, wing_i,
+            total_deck_w
+        });
+    }
+
+
+    // ==========================================================================
+    // THREE.JS — 3D LIVE VIEWPORT  (Section 4)
+    // ==========================================================================
+    let threeScene, threeCamera, threeRenderer, threeOrbit;
+    let bridgeMeshGroup = null;
+
+    // Orbit Controls — inlined (r128 compatible, no ES module needed)
+    // Minimal implementation matching Blender/Revit left-drag orbit, right-drag pan, scroll zoom
+    function installOrbitControls(camera, domElement) {
+        const state = { NONE: -1, ROTATE: 0, PAN: 1 };
+        let currentState = state.NONE;
+        const spherical = { theta: Math.PI / 4, phi: Math.PI / 3.5, radius: 40 };
+        const target    = new THREE.Vector3(0, 0, 0);
+        const panDelta  = new THREE.Vector3();
+
+        function updateCamera() {
+            const sinPhi   = Math.sin(spherical.phi);
+            const cosPhi   = Math.cos(spherical.phi);
+            const sinTheta = Math.sin(spherical.theta);
+            const cosTheta = Math.cos(spherical.theta);
+            camera.position.set(
+                target.x + spherical.radius * sinPhi * sinTheta,
+                target.y + spherical.radius * cosPhi,
+                target.z + spherical.radius * sinPhi * cosTheta
+            );
+            camera.lookAt(target);
+        }
+
+        let lastX = 0, lastY = 0;
+
+        domElement.addEventListener('mousedown', e => {
+            if (e.button === 0) currentState = state.ROTATE;
+            if (e.button === 2) currentState = state.PAN;
+            lastX = e.clientX; lastY = e.clientY;
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (currentState === state.NONE) return;
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            lastX = e.clientX; lastY = e.clientY;
+
+            if (currentState === state.ROTATE) {
+                spherical.theta -= dx * 0.006;
+                spherical.phi    = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi + dy * 0.006));
+            }
+            if (currentState === state.PAN) {
+                const panSpeed = spherical.radius * 0.001;
+                const right = new THREE.Vector3();
+                const up    = new THREE.Vector3();
+                right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+                up.copy(camera.up);
+                target.addScaledVector(right, -dx * panSpeed);
+                target.addScaledVector(up,     dy * panSpeed);
+            }
+            updateCamera();
+        });
+
+        window.addEventListener('mouseup', () => { currentState = state.NONE; });
+
+        domElement.addEventListener('wheel', e => {
+            spherical.radius = Math.max(5, Math.min(200, spherical.radius + e.deltaY * 0.05));
+            updateCamera();
+            e.preventDefault();
+        }, { passive: false });
+
+        domElement.addEventListener('contextmenu', e => e.preventDefault());
+
+        updateCamera();
+        return { update: updateCamera };
+    }
+
+    function initThreeViewport() {
+        const container = document.getElementById('three-canvas-container');
+        const w = container.clientWidth  || 400;
+        const h = container.clientHeight || 300;
+
+        // Scene
+        threeScene = new THREE.Scene();
+        threeScene.background = new THREE.Color(0x1e2330);
+        threeScene.fog = new THREE.Fog(0x1e2330, 80, 200);
+
+        // Camera
+        threeCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+
+        // Renderer
+        threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+        threeRenderer.setPixelRatio(window.devicePixelRatio);
+        threeRenderer.setSize(w, h);
+        threeRenderer.shadowMap.enabled = true;
+        threeRenderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+        container.appendChild(threeRenderer.domElement);
+
+        // Orbit Controls
+        threeOrbit = installOrbitControls(threeCamera, threeRenderer.domElement);
+
+        // Lighting — 3-point BIM-style setup
+        const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+        threeScene.add(ambient);
+
+        const key = new THREE.DirectionalLight(0xffffff, 0.85);
+        key.position.set(20, 40, 20);
+        key.castShadow = true;
+        key.shadow.mapSize.width  = 2048;
+        key.shadow.mapSize.height = 2048;
+        key.shadow.camera.near = 0.5;
+        key.shadow.camera.far  = 200;
+        key.shadow.camera.left = key.shadow.camera.bottom = -50;
+        key.shadow.camera.right = key.shadow.camera.top   =  50;
+        threeScene.add(key);
+
+        const fill = new THREE.DirectionalLight(0xb0c8e8, 0.35);
+        fill.position.set(-15, 10, -10);
+        threeScene.add(fill);
+
+        // Ground grid — infinite style like Blender
+        const grid = new THREE.GridHelper(200, 80, 0x2a3147, 0x252b3a);
+        grid.position.y = 0;
+        threeScene.add(grid);
+
+        // Ground plane (receives shadows)
+        const groundGeo = new THREE.PlaneGeometry(200, 200);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x1a1f2e, transparent: true, opacity: 0.6 });
+        const ground    = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        threeScene.add(ground);
+
+        // Resize handler
+        window.addEventListener('resize', onThreeResize);
+
+        // Animate
+        (function animate() {
+            requestAnimationFrame(animate);
+            threeRenderer.render(threeScene, threeCamera);
+        })();
+    }
+
+    function onThreeResize() {
+        const container = document.getElementById('three-canvas-container');
+        if (!container || !threeRenderer) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        threeCamera.aspect = w / h;
+        threeCamera.updateProjectionMatrix();
+        threeRenderer.setSize(w, h);
+    }
+
+    // Materials — concrete family
+    const MAT = {
+        deck:       new THREE.MeshLambertMaterial({ color: 0x7a8595 }),
+        abutment:   new THREE.MeshLambertMaterial({ color: 0x9ba8b5 }),
+        foundation: new THREE.MeshLambertMaterial({ color: 0xb0bcc6 }),
+        wing:       new THREE.MeshLambertMaterial({ color: 0x8e9dac }),
+    };
+
+    function makeBox(w, h, d, mat) {
+        const geo  = new THREE.BoxGeometry(w, h, d);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow    = true;
+        mesh.receiveShadow = true;
+
+        // Edges — CAD wireframe overlay
+        const edges    = new THREE.EdgesGeometry(geo);
+        const edgeMat  = new THREE.LineBasicMaterial({ color: 0x222831, linewidth: 1 });
+        const edgeMesh = new THREE.LineSegments(edges, edgeMat);
+        mesh.add(edgeMesh);
+
+        return mesh;
+    }
+
+    function rebuild3DModel(p) {
+        if (!threeScene) return;
+
+        // Clear previous bridge group
+        if (bridgeMeshGroup) {
+            threeScene.remove(bridgeMeshGroup);
+            bridgeMeshGroup.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose();
+            });
+        }
+
+        bridgeMeshGroup = new THREE.Group();
+
+        const {
+            traff_w, cape_w, deck_t,
+            abut_t_left, abut_t_right, abut_h,
+            foun_t, lbr, skew, wing_i, total_deck_w
+        } = p;
+
+        // Derived values mirroring config.json formulas
+        const foun_t_max  = foun_t + 0.1;
+        const foun_sl_l   = lbr + abut_t_left + abut_t_right;
+        const wing_h_tot  = abut_h + deck_t;
+        const wing_t      = 1.0;   // Wing_t default from config
+        const wing_l_upper = 0.2 + 1.5 * (abut_h + foun_t_max) + 0.8;
+        const wing_l_lower = Math.max(0.5,
+            0.2 + 1.5 * (abut_h + foun_t_max) - foun_t_max
+            - (abut_h - foun_t_max - 0.2) / Math.tan(Math.PI / 3)
+        );
+        const foun_w_upper = total_deck_w;
+        const foun_w_lower = total_deck_w + 2 * wing_l_lower + 0.4;
+
+        // Y positions (built bottom-up)
+        const y_ground   = 0;
+        const y_foun_top = y_ground + foun_t_max;
+        const y_abut_top = y_foun_top + abut_h;
+        const y_deck_top = y_abut_top + deck_t;
+
+        // Skew rotation in radians (applied to whole bridge group)
+        const skewRad = (skew * Math.PI) / 180;
+
+        // -- Foundation slab --
+        const foun = makeBox(foun_sl_l, foun_t_max, foun_w_lower, MAT.foundation);
+        foun.position.set(0, y_ground + foun_t_max / 2, 0);
+        bridgeMeshGroup.add(foun);
+
+        // -- Left abutment --
+        const abutL = makeBox(abut_t_left, abut_h, total_deck_w, MAT.abutment);
+        abutL.position.set(
+            -(lbr / 2) - (abut_t_left / 2),
+            y_foun_top + abut_h / 2,
+            0
+        );
+        bridgeMeshGroup.add(abutL);
+
+        // -- Right abutment --
+        const abutR = makeBox(abut_t_right, abut_h, total_deck_w, MAT.abutment);
+        abutR.position.set(
+            (lbr / 2) + (abut_t_right / 2),
+            y_foun_top + abut_h / 2,
+            0
+        );
+        bridgeMeshGroup.add(abutR);
+
+        // -- Deck slab --
+        const deck = makeBox(lbr, deck_t, total_deck_w, MAT.deck);
+        deck.position.set(0, y_abut_top + deck_t / 2, 0);
+        bridgeMeshGroup.add(deck);
+
+        // -- Wing walls (4 corners: front-left, front-right, back-left, back-right) --
+        const wingRad = (wing_i * Math.PI) / 180;
+        const wingPositions = [
+            // [ x_sign, z_sign, rotation_y ]
+            [ -1, -1,  wingRad ],   // front-left
+            [ -1,  1, -wingRad ],   // back-left
+            [  1, -1, -wingRad ],   // front-right
+            [  1,  1,  wingRad ],   // back-right
+        ];
+
+        wingPositions.forEach(([xs, zs, ry]) => {
+            const wing = makeBox(wing_l_upper, wing_h_tot, wing_t, MAT.wing);
+            wing.rotation.y = ry;
+            wing.position.set(
+                xs * ((lbr / 2) + abut_t_left / 2 + Math.cos(Math.abs(wingRad)) * wing_l_upper / 2),
+                y_foun_top + wing_h_tot / 2,
+                zs * (total_deck_w / 2 + Math.sin(Math.abs(wingRad)) * wing_l_upper / 2)
+            );
+            bridgeMeshGroup.add(wing);
+        });
+
+        // Apply skew to the whole bridge
+        bridgeMeshGroup.rotation.y = skewRad;
+
+        threeScene.add(bridgeMeshGroup);
+    }
+
+
+    // ==========================================================================
+    // INPUT BINDING
+    // ==========================================================================
+    function bindLiveInputLoops() {
+        document.querySelectorAll('.dimension-node input').forEach(input => {
+            input.addEventListener('input', runDynamicDiagramRecalculation);
+        });
+    }
+
+
+    // ==========================================================================
+    // CONFIG LOADING / SAVING
+    // ==========================================================================
+    let _lastKnownConfig = null;   // used by the poller to detect external changes
+
+    function populateInputsFromConfig(data) {
+        const comps = data.components;
+        for (let c in comps) {
+            for (let p in comps[c].parameters) {
+                const el = document.getElementById(`${c}-${p}`);
+                if (el) el.value = comps[c].parameters[p].example_value;
+            }
+        }
+        // Backward compat: single Abut_t → split left/right
+        if (comps.abutment && comps.abutment.parameters) {
+            const params = comps.abutment.parameters;
+            if (params.Abut_t && (!params.Abut_t_left || !params.Abut_t_right)) {
+                const shared = params.Abut_t.example_value;
+                const el = document.getElementById('abutment-Abut_t_left');
+                const er = document.getElementById('abutment-Abut_t_right');
+                if (el && !el.value) el.value = shared;
+                if (er && !er.value) er.value = shared;
+            }
+        }
+    }
+
+    function configSnapshot(data) {
+        // Flat snapshot of all editable example_values for change detection
+        const snap = {};
+        for (let c in data.components) {
+            for (let p in data.components[c].parameters) {
+                const param = data.components[c].parameters[p];
+                if (param.type === 'Editable') snap[`${c}.${p}`] = param.example_value;
+            }
+        }
+        return JSON.stringify(snap);
+    }
+
+    function triggerPipelineCompilation() {
+        const payload = {
+            main_deck: {
+                Lbr:    getVal('main_deck-Lbr'),
+                Traff_w:getVal('main_deck-Traff_w'),
+                Cape_w: getVal('main_deck-Cape_w'),
+                deck_t: getVal('main_deck-deck_t'),
+                Skew_i: getVal('main_deck-Skew_i'),
+                deck_i: document.getElementById('main_deck-deck_i')
+                            ? document.getElementById('main_deck-deck_i').value
+                            : '2.5%'
+            },
+            abutment: {
+                Abut_h:       getVal('abutment-Abut_h'),
+                Abut_t:       getVal('abutment-Abut_t_left'),   // backward compat
+                Abut_t_left:  getVal('abutment-Abut_t_left'),
+                Abut_t_right: getVal('abutment-Abut_t_right')
+            },
+            foundation_slab: {
+                Foun_Sl_t_min: getVal('foundation_slab-Foun_Sl_t_min'),
+                Foun_Sl_Ov:    getVal('foundation_slab-Foun_Sl_Ov', 2.0),
+                Foun_Sl_Ov_side: getVal('foundation_slab-Foun_Sl_Ov_side', 1.0)
+            },
+            wing_walls: {
+                Wing_i: getVal('wing_walls-Wing_i'),
+                Wing_t: getVal('wing_walls-Wing_t', 1.0)
+            }
+        };
+
+        fetch('/api/save-config', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'success') {
+                showToast('✔ Config written to disk — Blender watcher notified', 'success');
+                setSyncState('synced');
+            } else {
+                showToast('✘ Save failed: ' + (d.error || 'unknown'), 'error');
+                setSyncState('error');
+            }
+        })
+        .catch(e => {
+            showToast('✘ Network error: ' + e.message, 'error');
+            setSyncState('error');
+        });
+    }
+
+
+    // ==========================================================================
+    // LIVE POLLER — detects changes made by User 1 in Blender
+    // Polls /api/get-config every 2 s; updates inputs + redraws if values differ
+    // ==========================================================================
+    function startConfigPoller() {
+        setInterval(() => {
+            fetch('/api/get-config')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) { setSyncState('error'); return; }
+                    const snap = configSnapshot(data);
+                    if (snap !== _lastKnownConfig) {
+                        _lastKnownConfig = snap;
+                        populateInputsFromConfig(data);
+                        runDynamicDiagramRecalculation();
+                        setSyncState('synced');
+                    } else {
+                        setSyncState('synced');
+                    }
+                })
+                .catch(() => setSyncState('error'));
+        }, 2000);
+    }
+
+
+    // ==========================================================================
+    // INIT
+    // ==========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+        // 1. Init Three.js viewport first so rebuild3DModel() can fire immediately
+        initThreeViewport();
+
+        // 2. Load config and populate
+        fetch('/api/get-config')
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    setSyncState('error');
+                    showToast('✘ Could not load config.json', 'error');
+                    return;
+                }
+                _lastKnownConfig = configSnapshot(data);
+                populateInputsFromConfig(data);
+                bindLiveInputLoops();
+                runDynamicDiagramRecalculation();
+                setSyncState('synced');
+            })
+            .catch(e => {
+                setSyncState('error');
+                showToast('✘ Flask server unreachable', 'error');
+            });
+
+        // 3. Start poller for cross-user sync
+        startConfigPoller();
+    });
+    </script>
+</body>
+</html>
