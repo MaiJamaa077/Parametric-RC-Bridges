@@ -15,21 +15,21 @@
           "parameter": "Skew angle",
           "type": "Editable",
           "unit": "\u00b0",
-          "example_value": 10,
+          "example_value": 0,
           "dependencies": []
         },
         "Lbr": {
           "parameter": "Length of bridge",
           "type": "Editable",
           "unit": "m",
-          "example_value": 10,
+          "example_value": 5,
           "dependencies": []
         },
         "Traff_w": {
           "parameter": "Traffic width",
           "type": "Editable",
           "unit": "m",
-          "example_value": 10,
+          "example_value": 8,
           "dependencies": []
         },
         "Cape_w": {
@@ -149,7 +149,7 @@
           "parameter": "Minimum foundation slab thickness",
           "type": "Editable",
           "unit": "m",
-          "example_value": 0.5,
+          "example_value": 1,
           "dependencies": []
         },
         "Foun_Sl_t_max": {
@@ -209,7 +209,7 @@
           "parameter": "Wing angle",
           "type": "Editable",
           "unit": "\u00b0",
-          "example_value": -15,
+          "example_value": 0,
           "dependencies": []
         },
         "Wing_L_lower": {

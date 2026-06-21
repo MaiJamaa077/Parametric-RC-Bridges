@@ -18,12 +18,22 @@ def add_to_model(model, config):
     abut_t            = raw_abut_t / 100.0 if raw_abut_t > 10 else raw_abut_t
     Abut_h            = float(abut_params["Abut_h"]["example_value"])
 
-    Wing_L_lower  = 0.2 + 1.5*(Abut_h + Foun_Sl_t_max) - Foun_Sl_t_max - (Abut_h - Foun_Sl_t_max - 0.2) / math.tan(math.radians(60))
+    ww_params     = config["components"]["wing_walls"]["parameters"]
+    Wing_i        = float(ww_params["Wing_i"]["example_value"])
+    Wing_t        = float(ww_params["Wing_t"]["example_value"])
+    wing_rad      = math.radians(abs(Wing_i))
+    cos_w         = math.cos(wing_rad)
+    sin_w         = math.sin(wing_rad)
+    Wing_L_upper  = 0.2 + 1.5 * (Abut_h + Foun_Sl_t_max) + 0.8
+    Wing_L_lower  = 0.2 + 1.5 * (Abut_h + Foun_Sl_t_max) - Foun_Sl_t_max - (Abut_h - Foun_Sl_t_max - 0.2) / math.tan(math.radians(60))
 
-    # X = longitudinal: bridge length + both abutments + both wing wall lower lengths + 0.2m each end
-    # Y = transverse:   deck width
-    slab_span      = Lbr + 2.0 * abut_t + 2.0 * Wing_L_lower + 0.4   # X: 13.86 m
-    slab_wide      = deck_w_tot                                         # Y: 11.6  m
+    # Original structural length — unchanged
+    slab_span     = Lbr + 2.0 * abut_t + 2.0 * Wing_L_lower + 0.4
+
+    # Original structural width as base, angle-responsive delta added on top:
+    # At Wing_i=0°: sin=0, cos=1 → delta=0, slab_wide stays deck_w_tot
+    # As angle increases: sin grows → foundation widens to support angled wing walls
+    slab_wide     = deck_w_tot + 2 * (sin_w * Wing_L_upper + (cos_w - 1) * Wing_t / 2)
     slab_thickness = Foun_Sl_t_max                                      # Z:  0.6  m
 
     bridge       = model.by_type("IfcBridge")[0]

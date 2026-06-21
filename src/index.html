@@ -26,7 +26,14 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-        body { background-color: var(--bg-main); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+        }
 
         /* ------------------------------------------------------------------ Header */
         header {
@@ -288,9 +295,9 @@
                         <label>Left Abut. Thick.</label>
                         <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_t_left"><span class="unit">m</span></div>
                     </div>
-                    <div class="dimension-node" id="node-Abut_t_right">
-                        <label>Right Abut. Thick.</label>
-                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_t_right"><span class="unit">m</span></div>
+                    <div class="dimension-node" id="node-Abut_h_s1">
+                        <label>Abut. Height</label>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_h_s1" oninput="syncAbutH(this.value)"><span class="unit">m</span></div>
                     </div>
                 </div>
             </div>
@@ -340,7 +347,7 @@
                     </div>
                     <div class="dimension-node" id="node-Abut_h">
                         <label>Abutment Height</label>
-                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_h"><span class="unit">m</span></div>
+                        <div class="input-box-wrapper"><input type="number" step="0.01" id="abutment-Abut_h" oninput="syncAbutH(this.value)"><span class="unit">m</span></div>
                     </div>
                     <div class="dimension-node" id="node-Foun_Sl_t_min">
                         <label>Foundation Thickness</label>
@@ -402,6 +409,15 @@
         return isNaN(v) ? fallback : v;
     }
 
+    // Keep Section 1 and Section 3 Abut_h inputs in sync
+    function syncAbutH(value) {
+        const s3 = document.getElementById('abutment-Abut_h');
+        const s1 = document.getElementById('abutment-Abut_h_s1');
+        if (s3) s3.value = value;
+        if (s1) s1.value = value;
+        runDynamicDiagramRecalculation();
+    }
+
     function moveNode(id, svgX, svgY) {
         const node = document.getElementById(id);
         if (node) {
@@ -419,7 +435,7 @@
         const cape_w       = getVal('main_deck-Cape_w', 2.05);
         const deck_t       = getVal('main_deck-deck_t', 0.4);
         const abut_t_left  = getVal('abutment-Abut_t_left', 1.0);
-        const abut_t_right = getVal('abutment-Abut_t_right', 1.0);
+        const abut_t_right = getVal('abutment-Abut_t_right', 1.0) || abut_t_left;
         const abut_h       = getVal('abutment-Abut_h', 4.5);
         const foun_t       = getVal('foundation_slab-Foun_Sl_t_min', 0.6);
         const lbr          = getVal('main_deck-Lbr', 5.0);
@@ -430,7 +446,7 @@
 
         // --- Section 1: Cross-section ---
         const s1_scale    = 16;
-        const total_deck_w = traff_w + (2 * cape_w);
+        const total_deck_w = traff_w + 2 * (cape_w - 0.25);  // matches config: Traff_w + 2*(Cape_w - 0.25)
         const d_w = total_deck_w * s1_scale;
         const d_h = deck_t * s1_scale * 2.2;
         const d_x = cx - (d_w / 2);
@@ -458,7 +474,10 @@
         moveNode('node-Traff_w',     cx, d_y - 25);
         moveNode('node-deck_t',      d_x + d_w + 40, d_y + (d_h / 2));
         moveNode('node-Abut_t_left', al_x + (a_w_left / 2), a_y + (a_h / 2));
-        moveNode('node-Abut_t_right',ar_x + (a_w_right / 2), a_y + (a_h / 2));
+        moveNode('node-Abut_h_s1',   ar_x + a_w_right + 45, a_y + (a_h / 2));
+        // Keep Section 1 Abut_h display in sync with Section 3 value
+        const abut_h_s1_el = document.getElementById('abutment-Abut_h_s1');
+        if (abut_h_s1_el && document.activeElement !== abut_h_s1_el) abut_h_s1_el.value = abut_h;
 
         // --- Section 2: Top view ---
         const s2_scale = 18;
@@ -709,6 +728,8 @@
 
         bridgeMeshGroup = new THREE.Group();
 
+        try {
+
         const {
             traff_w, cape_w, deck_t,
             abut_t_left, abut_t_right, abut_h,
@@ -717,7 +738,6 @@
 
         // Derived values mirroring config.json formulas
         const foun_t_max  = foun_t + 0.1;
-        const foun_sl_l   = lbr + abut_t_left + abut_t_right;
         const wing_h_tot  = abut_h + deck_t;
         const wing_t      = 1.0;   // Wing_t default from config
         const wing_l_upper = 0.2 + 1.5 * (abut_h + foun_t_max) + 0.8;
@@ -725,8 +745,28 @@
             0.2 + 1.5 * (abut_h + foun_t_max) - foun_t_max
             - (abut_h - foun_t_max - 0.2) / Math.tan(Math.PI / 3)
         );
-        const foun_w_upper = total_deck_w;
-        const foun_w_lower = total_deck_w + 2 * wing_l_lower + 0.4;
+        const wingRad = (wing_i * Math.PI) / 180;
+        const cosW = Math.cos(Math.abs(wingRad));
+        const sinW = Math.sin(Math.abs(wingRad));
+
+        // Wing wall outermost X reach (longitudinal — drives foundation LENGTH):
+        //   center X = (lbr/2) + abut_t + cosW * wing_l_upper/2
+        //   half-extent in X = cosW * wing_l_upper/2 + sinW * wing_t/2
+        //   total = (lbr/2) + abut_t + cosW*wing_l_upper + sinW*wing_t/2
+        const wing_x_reach = (lbr / 2) + abut_t_left
+            + cosW * wing_l_upper
+            + sinW * wing_t / 2;
+        const foun_sl_l = 2 * wing_x_reach;
+
+        // Wing wall outermost Z reach (transverse — drives foundation WIDTH):
+        //   center Z = total_deck_w/2 + sinW * wing_l_upper/2
+        //   half-extent in Z = sinW * wing_l_upper/2 + cosW * wing_t/2
+        //   total = total_deck_w/2 + sinW*wing_l_upper + cosW*wing_t/2
+        const wing_z_reach = total_deck_w / 2
+            + sinW * wing_l_upper
+            + cosW * wing_t / 2;
+        const foun_w_lower = 2 * wing_z_reach;
+        const foun_w_upper = foun_w_lower;
 
         // Y positions (built bottom-up)
         const y_ground   = 0;
@@ -736,11 +776,6 @@
 
         // Skew rotation in radians (applied to whole bridge group)
         const skewRad = (skew * Math.PI) / 180;
-
-        // -- Foundation slab --
-        const foun = makeBox(foun_sl_l, foun_t_max, foun_w_lower, MAT.foundation);
-        foun.position.set(0, y_ground + foun_t_max / 2, 0);
-        bridgeMeshGroup.add(foun);
 
         // -- Left abutment --
         const abutL = makeBox(abut_t_left, abut_h, total_deck_w, MAT.abutment);
@@ -760,36 +795,135 @@
         );
         bridgeMeshGroup.add(abutR);
 
-        // -- Deck slab --
-        const deck = makeBox(lbr, deck_t, total_deck_w, MAT.deck);
+        // -- Deck slab — length = span + both abutment thicknesses so it is flush with outer faces --
+        const deck_l = lbr + abut_t_left + abut_t_right;
+        const deck = makeBox(deck_l, deck_t, total_deck_w, MAT.deck);
         deck.position.set(0, y_abut_top + deck_t / 2, 0);
         bridgeMeshGroup.add(deck);
 
-        // -- Wing walls (4 corners: front-left, front-right, back-left, back-right) --
-        const wingRad = (wing_i * Math.PI) / 180;
-        const wingPositions = [
-            // [ x_sign, z_sign, rotation_y ]
-            [ -1, -1,  wingRad ],   // front-left
-            [ -1,  1, -wingRad ],   // back-left
-            [  1, -1, -wingRad ],   // front-right
-            [  1,  1,  wingRad ],   // back-right
+        const wing_h_upper = 0.2;
+
+        // Build trapezoid wing wall geometry.
+        // mirrorX=true flips the profile so the long base points in -X (for inlet walls).
+        // Extrusion always goes in +Z (toward bridge center for left walls, away for right).
+        // mirrorZ=true flips extrusion to -Z direction.
+        function makeTrapezoidWing(mirrorX, mirrorZ) {
+            const wl = wing_l_lower, wu = wing_l_upper;
+            const wh = wing_h_tot, whu = wing_h_upper, wt = wing_t;
+            const sx = mirrorX ? -1 : 1;
+            const z0 = 0, z1 = mirrorZ ? -wt : wt;
+
+            const verts = new Float32Array([
+                0,       0,        z0,  // 0
+                sx*wl,   0,        z0,  // 1
+                sx*wu,   wh-whu,   z0,  // 2
+                sx*wu,   wh,       z0,  // 3
+                0,       wh,       z0,  // 4
+                0,       0,        z1,  // 5
+                sx*wl,   0,        z1,  // 6
+                sx*wu,   wh-whu,   z1,  // 7
+                sx*wu,   wh,       z1,  // 8
+                0,       wh,       z1,  // 9
+            ]);
+
+            // Winding: front face CCW when viewed from z0 side
+            // When mirrorX, front face winding reverses; when mirrorZ, front/back swap
+            const fwd = (!mirrorX && !mirrorZ) || (mirrorX && mirrorZ);
+            const idx = new Uint16Array(fwd ? [
+                // front (z0)
+                0,2,1,  0,4,2,  2,4,3,
+                // back  (z1)
+                5,6,7,  5,7,9,  7,8,9,
+                // bottom
+                0,1,6,  0,6,5,
+                // slant-lower
+                1,2,7,  1,7,6,
+                // slant-upper
+                2,3,8,  2,8,7,
+                // top
+                3,4,9,  3,9,8,
+                // left side
+                4,0,5,  4,5,9,
+            ] : [
+                // front (z0) — reversed winding
+                0,1,2,  0,2,4,  2,3,4,
+                // back  (z1) — reversed winding
+                5,7,6,  5,9,7,  7,9,8,
+                // bottom
+                0,6,1,  0,5,6,
+                // slant-lower
+                1,7,2,  1,6,7,
+                // slant-upper
+                2,8,3,  2,7,8,
+                // top
+                3,9,4,  3,8,9,
+                // left side
+                4,5,0,  4,9,5,
+            ]);
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+            geo.setIndex(new THREE.BufferAttribute(idx, 1));
+            geo.computeVertexNormals();
+            return new THREE.Mesh(geo, MAT.wing);
+        }
+
+        // Anchor at the inner-bottom corner of each wing wall (abutment outer face).
+        // No rotation needed — geometry is built already facing the right direction.
+        // Wing wall angle rotates only in XZ plane around Y axis.
+        //
+        // Inlet  left : anchor=(x_inlet, y, -cw/2),       profile in -X, extrude in +Z
+        // Inlet  right: anchor=(x_inlet, y, +cw/2),       profile in -X, extrude in -Z
+        // Outlet left : anchor=(x_outlet, y, -cw/2),      profile in +X, extrude in +Z  (but inner edge so +Z is into bridge = wrong)
+        // Outlet right: anchor=(x_outlet, y, +cw/2),      profile in +X, extrude in -Z
+        //
+        // Actually mirror approach: all 4 share the same anchor logic from Python.
+        // Rotate only the profile X direction (wing angle) around Y, keep extrusion in Z fixed.
+
+        const x_inlet  = -(lbr / 2) - abut_t_left;
+        const x_outlet =  (lbr / 2) + abut_t_right;
+        const cw       = total_deck_w;
+        const y_wing   = y_foun_top;
+
+        // Each entry: anchor position, mirrorX (profile direction), mirrorZ (extrusion direction), wing angle rotation
+        const wingDefs = [
+            // Matches wing_walls.py: inlet left  rot = 180 - Wing_i  → rotY = -(Math.PI - wingRad) = wingRad - Math.PI
+            { x: x_inlet,  z: -(cw/2),  mirrorX: true,  mirrorZ: false, rotY:  wingRad },
+            // inlet right rot = 180 + Wing_i
+            { x: x_inlet,  z:  (cw/2),  mirrorX: true,  mirrorZ: true,  rotY: -wingRad },
+            // outlet left  rot = 0 + Wing_i
+            { x: x_outlet, z: -(cw/2),  mirrorX: false, mirrorZ: false, rotY: -wingRad },
+            // outlet right rot = 0 - Wing_i
+            { x: x_outlet, z:  (cw/2),  mirrorX: false, mirrorZ: true,  rotY:  wingRad },
         ];
 
-        wingPositions.forEach(([xs, zs, ry]) => {
-            const wing = makeBox(wing_l_upper, wing_h_tot, wing_t, MAT.wing);
-            wing.rotation.y = ry;
-            wing.position.set(
-                xs * ((lbr / 2) + abut_t_left / 2 + Math.cos(Math.abs(wingRad)) * wing_l_upper / 2),
-                y_foun_top + wing_h_tot / 2,
-                zs * (total_deck_w / 2 + Math.sin(Math.abs(wingRad)) * wing_l_upper / 2)
-            );
+        wingDefs.forEach(({ x, z, mirrorX, mirrorZ, rotY }) => {
+            const wing = makeTrapezoidWing(mirrorX, mirrorZ);
+            wing.rotation.y = rotY;
+            wing.position.set(x, y_wing, z);
             bridgeMeshGroup.add(wing);
         });
+
+        // -- Foundation slab length: original formula + 0.2m each end beyond wing_l_lower --
+        const foun_sl_l_final = lbr + 2 * abut_t_left + 2 * wing_l_lower + 0.4;
+        // slab_wide: base deck_w_tot + angle-responsive delta (same as foundation_slab.py)
+        const foun_sl_w_final = total_deck_w
+            + 2 * (sinW * wing_l_upper + (cosW - 1) * wing_t / 2);
+
+        // -- Foundation slab --
+        const foun = makeBox(foun_sl_l_final, foun_t_max, foun_sl_w_final, MAT.foundation);
+        foun.position.set(0, y_ground + foun_t_max / 2, 0);
+        bridgeMeshGroup.add(foun);
 
         // Apply skew to the whole bridge
         bridgeMeshGroup.rotation.y = skewRad;
 
         threeScene.add(bridgeMeshGroup);
+
+        } catch (err) {
+            console.error('[Bridge 3D] rebuild error:', err);
+            threeScene.add(bridgeMeshGroup);  // add whatever was built before the error
+        }
     }
 
 
