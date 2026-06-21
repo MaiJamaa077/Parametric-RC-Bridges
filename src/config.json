@@ -14,7 +14,7 @@
         "Skew_i": {
           "parameter": "Skew angle",
           "type": "Editable",
-          "unit": "°",
+          "unit": "\u00b0",
           "example_value": 0,
           "dependencies": []
         },
@@ -45,11 +45,14 @@
           "unit": "m",
           "example_value": 11.6,
           "formula": "Traff_w + 2 * (Cape_w - 0.25)",
-          "dependencies": ["Traff_w", "Cape_w"]
+          "dependencies": [
+            "Traff_w",
+            "Cape_w"
+          ]
         },
         "deck_t": {
-          "parameter": "Minimum deck thickness",
-          "type": "Normative/Input",
+          "parameter": "Deck thickness",
+          "type": "Editable",
           "unit": "m",
           "example_value": 0.925,
           "dependencies": []
@@ -61,13 +64,24 @@
           "example_value": "2.5%",
           "dependencies": []
         },
+        "Concrete_cover": {
+          "parameter": "Concrete cover",
+          "type": "Editable",
+          "unit": "m",
+          "example_value": 0.04,
+          "dependencies": []
+        },
         "deck_t_max": {
           "parameter": "Maximum deck thickness",
           "type": "Derived",
           "unit": "m",
           "example_value": 1.025,
           "formula": "deck_t + 0.5 * Traff_w * deck_i",
-          "dependencies": ["deck_t", "Traff_w", "deck_i"]
+          "dependencies": [
+            "deck_t",
+            "Traff_w",
+            "deck_i"
+          ]
         }
       }
     },
@@ -80,7 +94,9 @@
           "unit": "m",
           "example_value": 8,
           "formula": "Traff_w",
-          "dependencies": ["main_deck.Traff_w"]
+          "dependencies": [
+            "main_deck.Traff_w"
+          ]
         },
         "Abut_w_outer": {
           "parameter": "Abutment outer width",
@@ -88,7 +104,9 @@
           "unit": "m",
           "example_value": 11.6,
           "formula": "deck_w_tot",
-          "dependencies": ["main_deck.deck_w_tot"]
+          "dependencies": [
+            "main_deck.deck_w_tot"
+          ]
         },
         "Abut_h": {
           "parameter": "Abutment height",
@@ -113,7 +131,7 @@
           "parameter": "Foundation slab exterior overhang",
           "type": "Editable",
           "unit": "m",
-          "example_value": 2.0,
+          "example_value": 2,
           "dependencies": []
         },
         "Foun_Sl_L": {
@@ -122,13 +140,16 @@
           "unit": "m",
           "example_value": 7,
           "formula": "Lbr + 2 * Abut_t",
-          "dependencies": ["main_deck.Lbr", "abutment.Abut_t"]
+          "dependencies": [
+            "main_deck.Lbr",
+            "abutment.Abut_t"
+          ]
         },
         "Foun_Sl_t_min": {
           "parameter": "Minimum foundation slab thickness",
           "type": "Editable",
           "unit": "m",
-          "example_value": 0.5,
+          "example_value": 1,
           "dependencies": []
         },
         "Foun_Sl_t_max": {
@@ -137,7 +158,9 @@
           "unit": "m",
           "example_value": 0.6,
           "formula": "Foun_Sl_t_min + 0.1",
-          "dependencies": ["Foun_Sl_t_min"]
+          "dependencies": [
+            "Foun_Sl_t_min"
+          ]
         },
         "Foun_Sl_Ov_side": {
           "parameter": "Foundation slab left/right overhang",
@@ -152,7 +175,9 @@
           "unit": "m",
           "example_value": 11.6,
           "formula": "deck_w_tot",
-          "dependencies": ["main_deck.deck_w_tot"]
+          "dependencies": [
+            "main_deck.deck_w_tot"
+          ]
         },
         "Foun_w_lower": {
           "parameter": "Foundation lower width",
@@ -160,7 +185,10 @@
           "unit": "m",
           "example_value": 14.0,
           "formula": "deck_w_tot + 2 * Wing_L_lower + 0.4",
-          "dependencies": ["main_deck.deck_w_tot", "wing_walls.Wing_L_lower"]
+          "dependencies": [
+            "main_deck.deck_w_tot",
+            "wing_walls.Wing_L_lower"
+          ]
         },
         "Foun_Sl_span": {
           "parameter": "Foundation slab span (matches deck width)",
@@ -168,7 +196,9 @@
           "unit": "m",
           "example_value": 11.6,
           "formula": "deck_w_tot",
-          "dependencies": ["main_deck.deck_w_tot"]
+          "dependencies": [
+            "main_deck.deck_w_tot"
+          ]
         }
       }
     },
@@ -178,7 +208,7 @@
         "Wing_i": {
           "parameter": "Wing angle",
           "type": "Editable",
-          "unit": "°",
+          "unit": "\u00b0",
           "example_value": 0,
           "dependencies": []
         },
@@ -187,8 +217,11 @@
           "type": "Derived",
           "unit": "m",
           "example_value": 3.73,
-          "formula": "0.2 + 1.5*(Abut_h + Foun_Sl_t_max) - Foun_Sl_t_max - (Abut_h - Foun_Sl_t_max - 0.2) / tan(60°)",
-          "dependencies": ["abutment.Abut_h", "foundation_slab.Foun_Sl_t_max"]
+          "formula": "0.2 + 1.5*(Abut_h + Foun_Sl_t_max) - Foun_Sl_t_max - (Abut_h - Foun_Sl_t_max - 0.2) / tan(60\u00b0)",
+          "dependencies": [
+            "abutment.Abut_h",
+            "foundation_slab.Foun_Sl_t_max"
+          ]
         },
         "Wing_h_total": {
           "parameter": "Wing total height",
@@ -196,7 +229,10 @@
           "unit": "m",
           "example_value": 3.925,
           "formula": "Abut_h + deck_t",
-          "dependencies": ["abutment.Abut_h", "main_deck.deck_t"]
+          "dependencies": [
+            "abutment.Abut_h",
+            "main_deck.deck_t"
+          ]
         },
         "Wing_h_upper": {
           "parameter": "Wing upper height",
@@ -218,39 +254,102 @@
           "unit": "m",
           "example_value": 6.4,
           "formula": "0.2 + 1.5*(Abut_h + Foun_Sl_t_max) + 0.8",
-          "dependencies": ["abutment.Abut_h", "foundation_slab.Foun_Sl_t_max"]
+          "dependencies": [
+            "abutment.Abut_h",
+            "foundation_slab.Foun_Sl_t_max"
+          ]
         }
       }
     }
   },
   "global_dependency_flow": {
     "from_main_deck": [
-      { "source": "main_deck.Traff_w", "target": "main_deck.deck_w_tot" },
-      { "source": "main_deck.Cape_w", "target": "main_deck.deck_w_tot" },
-      { "source": "main_deck.deck_t", "target": "main_deck.deck_t_max" },
-      { "source": "main_deck.Traff_w", "target": "main_deck.deck_t_max" },
-      { "source": "main_deck.deck_i", "target": "main_deck.deck_t_max" },
-      { "source": "main_deck.Traff_w", "target": "abutment.Abut_w_inner" },
-      { "source": "main_deck.deck_w_tot", "target": "abutment.Abut_w_outer" },
-      { "source": "main_deck.Lbr", "target": "foundation_slab.Foun_Sl_L" },
-      { "source": "main_deck.deck_w_tot", "target": "foundation_slab.Foun_w_upper" },
-      { "source": "main_deck.deck_w_tot", "target": "foundation_slab.Foun_Sl_span" },
-      { "source": "main_deck.deck_t", "target": "wing_walls.Wing_h_total" }
+      {
+        "source": "main_deck.Traff_w",
+        "target": "main_deck.deck_w_tot"
+      },
+      {
+        "source": "main_deck.Cape_w",
+        "target": "main_deck.deck_w_tot"
+      },
+      {
+        "source": "main_deck.deck_t",
+        "target": "main_deck.deck_t_max"
+      },
+      {
+        "source": "main_deck.Traff_w",
+        "target": "main_deck.deck_t_max"
+      },
+      {
+        "source": "main_deck.deck_i",
+        "target": "main_deck.deck_t_max"
+      },
+      {
+        "source": "main_deck.Traff_w",
+        "target": "abutment.Abut_w_inner"
+      },
+      {
+        "source": "main_deck.deck_w_tot",
+        "target": "abutment.Abut_w_outer"
+      },
+      {
+        "source": "main_deck.Lbr",
+        "target": "foundation_slab.Foun_Sl_L"
+      },
+      {
+        "source": "main_deck.deck_w_tot",
+        "target": "foundation_slab.Foun_w_upper"
+      },
+      {
+        "source": "main_deck.deck_w_tot",
+        "target": "foundation_slab.Foun_Sl_span"
+      },
+      {
+        "source": "main_deck.deck_t",
+        "target": "wing_walls.Wing_h_total"
+      }
     ],
     "from_abutment": [
-      { "source": "abutment.Abut_h", "target": "wing_walls.Wing_h_total" },
-      { "source": "abutment.Abut_h", "target": "wing_walls.Wing_L_upper" },
-      { "source": "abutment.Abut_h", "target": "wing_walls.Wing_L_lower" },
-      { "source": "abutment.Abut_t", "target": "foundation_slab.Foun_Sl_L" }
+      {
+        "source": "abutment.Abut_h",
+        "target": "wing_walls.Wing_h_total"
+      },
+      {
+        "source": "abutment.Abut_h",
+        "target": "wing_walls.Wing_L_upper"
+      },
+      {
+        "source": "abutment.Abut_h",
+        "target": "wing_walls.Wing_L_lower"
+      },
+      {
+        "source": "abutment.Abut_t",
+        "target": "foundation_slab.Foun_Sl_L"
+      }
     ],
     "from_foundation_slab": [
-      { "source": "foundation_slab.Foun_Sl_t_min", "target": "foundation_slab.Foun_Sl_t_max" },
-      { "source": "foundation_slab.Foun_Sl_t_max", "target": "wing_walls.Wing_L_upper" },
-      { "source": "foundation_slab.Foun_Sl_t_max", "target": "wing_walls.Wing_L_lower" },
-      { "source": "foundation_slab.Foun_w_upper", "target": "foundation_slab.Foun_w_lower" }
+      {
+        "source": "foundation_slab.Foun_Sl_t_min",
+        "target": "foundation_slab.Foun_Sl_t_max"
+      },
+      {
+        "source": "foundation_slab.Foun_Sl_t_max",
+        "target": "wing_walls.Wing_L_upper"
+      },
+      {
+        "source": "foundation_slab.Foun_Sl_t_max",
+        "target": "wing_walls.Wing_L_lower"
+      },
+      {
+        "source": "foundation_slab.Foun_w_upper",
+        "target": "foundation_slab.Foun_w_lower"
+      }
     ],
     "from_wing_walls": [
-      { "source": "wing_walls.Wing_L_lower", "target": "foundation_slab.Foun_w_lower" }
+      {
+        "source": "wing_walls.Wing_L_lower",
+        "target": "foundation_slab.Foun_w_lower"
+      }
     ]
   }
 }

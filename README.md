@@ -88,6 +88,7 @@ This will:
 ### 4. Visual Inspection (Bonsai)
 
 * Open **Blender 4.x** with the **Bonsai** add-on enabled.
+
 * Go to the **BIM tab** and use the "Open Project" folder icon to load the generated `.ifc` files from the `ifc_output` folder.
   
   ### Current File Structure
@@ -112,14 +113,17 @@ This will:
 ---
 
 ## Team Contribution & Git Flow
+
 To keep the "Golden" version of the engine stable, we follow a feature-based branching model:
 
-*   **`main`**: The "Golden" version. Only contains code that generates valid, schema-passed .ifc files.
-*   **`dev`**: The integration branch. New components are merged here first for interoperability testing.
-*   **`feature/[component-name]`**: Dedicated branches for specific logic (e.g., `feature/wall-logic`).
+* **`main`**: The "Golden" version. Only contains code that generates valid, schema-passed .ifc files.
+* **`dev`**: The integration branch. New components are merged here first for interoperability testing.
+* **`feature/[component-name]`**: Dedicated branches for specific logic (e.g., `feature/wall-logic`).
 
 ### Submission Checklist
+
 Before opening a PR (Pull Request) into `dev`:
+
 1. [x] Script runs without `ifcopenshell` errors.
 2. [x] Generated model passes `ifcopenshell.validate` with zero schema errors.
 3. [x] Geometric dimensions match the `config.json` parameters.
@@ -127,8 +131,10 @@ Before opening a PR (Pull Request) into `dev`:
 ---
 
 ## Testing Protocol
+
 We don't trust our code until it's validated:
-1.  **Unit Tests:** Ensuring geometric functions return accurate dimensions.
-2.  **Schema Check:** Every generated file must pass the IFC 4.3 schema validation (Phase 3.1).
-3.  **Official Verification:** Final models are cross-checked using the **buildingSMART online validation service** for official compliance reports.
-4.  **Visual QA:** Manual check in Solibri/Bonsai for clash detection and property accuracy.
+
+1. **Unit Tests:** Ensuring geometric functions return accurate dimensions.
+2. **Schema Check:** Every generated file must pass the IFC 4.3 schema validation (Phase 3.1).
+3. **Official Verification:** Final models are cross-checked using the **buildingSMART online validation service** for official compliance reports.
+4. **Visual QA:** Manual check in Solibri/Bonsai for clash detection and property accuracy.

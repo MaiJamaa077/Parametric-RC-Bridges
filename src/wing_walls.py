@@ -111,11 +111,64 @@ def add_to_model(model, config):
     x_inlet  = -culvert_length / 2.0 - abut_t
     x_outlet =  culvert_length / 2.0 + abut_t
 
+    wing_rad = math.radians(Wing_i)
+    # Miter offset so the inner connecting face stays coplanar with the abutment
+    # outer face at all angles. At Wing_i=0: miter=0, identical to original.
+    miter = Wing_t * math.tan(wing_rad) if Wing_i != 0 else 0.0
+
+    def create_trapezoid_wing_wall(name, x, y, z, rotation_deg):
+        p_inner_bottom = model.create_entity("IfcCartesianPoint", Coordinates=(miter, 0.0))
+        p_inner_top    = model.create_entity("IfcCartesianPoint", Coordinates=(miter, Wing_h_total))
+        points = [
+            p_inner_bottom,
+            model.create_entity("IfcCartesianPoint", Coordinates=(Wing_L_lower + miter, 0.0)),
+            model.create_entity("IfcCartesianPoint", Coordinates=(Wing_L_upper + miter, Wing_h_total - Wing_h_upper)),
+            model.create_entity("IfcCartesianPoint", Coordinates=(Wing_L_upper + miter, Wing_h_total)),
+            p_inner_top,
+            p_inner_bottom,
+        ]
+        polyline = model.create_entity("IfcPolyline", Points=points)
+        profile  = model.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=polyline)
+        extrusion_direction = model.create_entity("IfcDirection", DirectionRatios=(0.0, 0.0, 1.0))
+        solid = model.create_entity(
+            "IfcExtrudedAreaSolid",
+            SweptArea=profile,
+            Position=wall_body_placement(),
+            ExtrudedDirection=extrusion_direction,
+            Depth=Wing_t
+        )
+        shape = model.create_entity(
+            "IfcShapeRepresentation",
+            ContextOfItems=body_context,
+            RepresentationIdentifier="Body",
+            RepresentationType="SweptSolid",
+            Items=[solid]
+        )
+        product_shape = model.create_entity("IfcProductDefinitionShape", Representations=[shape])
+        wall = model.create_entity(
+            "IfcWall",
+            GlobalId=guid(),
+            Name=name,
+            ObjectPlacement=local_placement(x, y, z, rotation_deg),
+            Representation=product_shape
+        )
+        ifcopenshell.api.run("material.assign_material", model, products=[wall], type="IfcMaterial", material=concrete)
+        pset = ifcopenshell.api.run("pset.add_pset", model, product=wall, name="Pset_WallCommon")
+        ifcopenshell.api.run("pset.edit_pset", model, pset=pset, properties={"LoadBearing": True, "IsExternal": True})
+        qto = ifcopenshell.api.run("pset.add_qto", model, product=wall, name="Qto_WallBaseQuantities")
+        ifcopenshell.api.run("pset.edit_qto", model, qto=qto, properties={"Length": float(Wing_L_upper), "Height": float(Wing_h_total), "Width": float(Wing_t)})
+        ifcopenshell.api.run("classification.add_reference", model,
+            products=[wall],
+            classification=classification,
+            identification="Ss_25_16_16",
+            name="Bridge Wing Walls")
+        return wall
+
     walls = [
-        create_trapezoid_wing_wall("Inlet Left Wing Wall",   x_inlet,  -(cw/2),          0.0, 180.0 - Wing_i),
-        create_trapezoid_wing_wall("Inlet Right Wing Wall",  x_inlet,   (cw/2 - Wing_t),  0.0, 180.0 + Wing_i),
-        create_trapezoid_wing_wall("Outlet Left Wing Wall",  x_outlet, -(cw/2 - Wing_t),  0.0,   0.0 + Wing_i),
-        create_trapezoid_wing_wall("Outlet Right Wing Wall", x_outlet,  (cw/2),           0.0,   0.0 - Wing_i),
+        create_trapezoid_wing_wall("Inlet Left Wing Wall",   x_inlet,  -(cw/2),         0.0, 180.0 - Wing_i),
+        create_trapezoid_wing_wall("Inlet Right Wing Wall",  x_inlet,   (cw/2 - Wing_t), 0.0, 180.0 + Wing_i),
+        create_trapezoid_wing_wall("Outlet Left Wing Wall",  x_outlet, -(cw/2 - Wing_t), 0.0,   0.0 + Wing_i),
+        create_trapezoid_wing_wall("Outlet Right Wing Wall", x_outlet,  (cw/2),          0.0,   0.0 - Wing_i),
     ]
 
     model.create_entity(
